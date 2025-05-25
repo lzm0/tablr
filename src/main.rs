@@ -12,6 +12,9 @@ struct Tablr {
     files_to_load: Vec<PathBuf>,
     error_message: Option<String>,
     files_message: String,
+
+    sort_column: Option<usize>,
+    sort_descending: bool,
 }
 
 impl Tablr {
@@ -22,6 +25,9 @@ impl Tablr {
             files_to_load: Vec::new(),
             error_message: None,
             files_message: String::new(),
+
+            sort_column: None,
+            sort_descending: false,
         }
     }
 
@@ -106,8 +112,8 @@ impl Tablr {
         }
     }
 
-    fn render_dataframe(&self, ui: &mut egui::Ui) {
-        if let Some(df) = &self.dataframe {
+    fn render_dataframe(&mut self, ui: &mut egui::Ui) {
+        if let Some(df) = &self.dataframe.clone() {
             ScrollArea::horizontal()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -116,7 +122,7 @@ impl Tablr {
                         .resizable(true)
                         .columns(Column::auto().resizable(true), self.column_names.len() + 1)
                         .header(20.0, |mut header_row| {
-                            self.render_table_header(&mut header_row, &self.column_names);
+                            self.render_table_header(&mut header_row, &self.column_names.clone());
                         })
                         .body(|body| {
                             self.render_table_body(body, df, &self.column_names);
@@ -124,14 +130,51 @@ impl Tablr {
                 });
         }
     }
+    fn apply_sort(&mut self) {
+        if let (Some(df), Some(col_idx)) = (&self.dataframe, self.sort_column) {
+            let col_name = &self.column_names[col_idx];
 
-    fn render_table_header(&self, header_row: &mut TableRow, column_names: &[String]) {
+            match df.sort(
+                vec![PlSmallStr::from(col_name)],
+                SortMultipleOptions::new().with_order_descending(self.sort_descending),
+            ) {
+                Ok(sorted_df) => {
+                    self.dataframe = Some(sorted_df);
+                }
+                Err(e) => {
+                    self.error_message = Some(format!("Sort error: {}", e));
+                }
+            }
+        }
+    }
+
+    fn render_table_header(&mut self, header_row: &mut TableRow, column_names: &[String]) {
         header_row.col(|ui| {
             ui.add(cell_label("Row Index"));
         });
-        for col_name in column_names {
+
+        for (i, col_name) in column_names.iter().enumerate() {
             header_row.col(|ui| {
-                ui.add(cell_label(col_name));
+                if ui
+                    .add(cell_label(&format!(
+                        "{}{}",
+                        col_name,
+                        if Some(i) == self.sort_column {
+                            if self.sort_descending { "⬇" } else { "⬆" }
+                        } else {
+                            ""
+                        }
+                    )))
+                    .clicked()
+                {
+                    if Some(i) == self.sort_column {
+                        self.sort_descending = !self.sort_descending;
+                    } else {
+                        self.sort_column = Some(i);
+                        self.sort_descending = false;
+                    }
+                    self.apply_sort();
+                }
             });
         }
     }
