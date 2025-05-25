@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::{ScrollArea, TextWrapMode};
 use egui::widgets::Label;
-use egui_extras::{Column, TableBuilder};
+use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 use polars::prelude::*;
 use rfd::FileDialog;
 use std::path::PathBuf;
@@ -28,143 +28,157 @@ impl Tablr {
     fn load_parquet_data(&mut self, paths: Vec<PathBuf>) {
         self.dataframe = None;
         self.column_names.clear();
-        self.error_message = None;
 
         let scan_sources = ScanSources::Paths(paths.into());
 
-        match LazyFrame::scan_parquet_sources(scan_sources, ScanArgsParquet::default()) {
-            Ok(lazy_frame) => match lazy_frame.collect() {
-                Ok(df) => {
-                    self.dataframe = Some(df);
-                    if let Some(dataframe) = &self.dataframe {
-                        self.column_names = dataframe
-                            .get_column_names()
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect();
-                    }
-                }
-                Err(e) => {
-                    self.error_message = Some(format!("Error collecting DataFrame: {}", e));
-                }
-            },
+        match LazyFrame::scan_parquet_sources(scan_sources, ScanArgsParquet::default())
+            .and_then(|lazy_frame| lazy_frame.collect())
+        {
+            Ok(df) => {
+                self.column_names = df
+                    .get_column_names()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect();
+                self.dataframe = Some(df);
+                self.error_message = None;
+            }
             Err(e) => {
-                self.error_message = Some(format!("Error scanning Parquet files: {}", e));
+                self.dataframe = None;
+                self.column_names.clear();
+                self.error_message = Some(format!("Error processing Parquet files: {}", e));
             }
         }
     }
+
+    fn process_pending_files(&mut self) {
+        if !self.files_to_load.is_empty() {
+            let files_to_load = std::mem::take(&mut self.files_to_load);
+            self.load_parquet_data(files_to_load);
+        }
+    }
+
+    fn render_file_selector(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Browse...").clicked() {
+                self.handle_browse_button_click();
+            }
+
+            if self.files_message.is_empty() {
+                ui.label("No parquet files selected.");
+            } else {
+                ui.label(format!("Selected: {}", self.files_message));
+            }
+        });
+    }
+
+    fn handle_browse_button_click(&mut self) {
+        if let Some(paths) = FileDialog::new()
+            .add_filter("Parquet files", &["parquet"])
+            .set_title("Pick parquet file(s)")
+            .pick_files()
+        {
+            if paths.is_empty() {
+                self.files_message = "No files selected.".to_string();
+
+                self.error_message =
+                    Some("No files selected. Please select at least one Parquet file.".to_string());
+            } else {
+                self.files_message = if paths.len() == 1 {
+                    paths[0]
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned()
+                } else {
+                    format!("{} files", paths.len())
+                };
+                self.files_to_load = paths;
+
+                self.error_message = None;
+            }
+        }
+    }
+
+    fn render_error_message(&self, ui: &mut egui::Ui) {
+        if let Some(err_msg) = &self.error_message {
+            ui.colored_label(egui::Color32::RED, err_msg);
+        }
+    }
+
+    fn render_dataframe(&self, ui: &mut egui::Ui) {
+        if let Some(df) = &self.dataframe {
+            ScrollArea::horizontal()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    TableBuilder::new(ui)
+                        .striped(true)
+                        .resizable(true)
+                        .columns(Column::auto().resizable(true), self.column_names.len() + 1)
+                        .header(20.0, |mut header_row| {
+                            self.render_table_header(&mut header_row, &self.column_names);
+                        })
+                        .body(|body| {
+                            self.render_table_body(body, df, &self.column_names);
+                        });
+                });
+        }
+    }
+
+    fn render_table_header(&self, header_row: &mut TableRow, column_names: &[String]) {
+        header_row.col(|ui| {
+            ui.add(cell_label("Row Index"));
+        });
+        for col_name in column_names {
+            header_row.col(|ui| {
+                ui.add(cell_label(col_name));
+            });
+        }
+    }
+
+    fn render_table_body(&self, body: TableBody, df: &DataFrame, column_names: &[String]) {
+        let num_rows = df.height();
+        body.rows(20.0, num_rows, |mut data_row_ui| {
+            let row_index = data_row_ui.index();
+            data_row_ui.col(|ui| {
+                ui.add(cell_label(&row_index.to_string()));
+            });
+
+            for col_name in column_names {
+                match df.column(col_name) {
+                    Ok(column) => {
+                        let cell_text = match column.get(row_index) {
+                            Ok(any_value) => any_value.to_string(),
+                            Err(_) => "Error".to_string(),
+                        };
+                        data_row_ui.col(|ui| {
+                            ui.add(cell_label(&cell_text));
+                        });
+                    }
+                    Err(_) => {
+                        data_row_ui.col(|ui| {
+                            ui.add(cell_label("Col?"));
+                        });
+                    }
+                }
+            }
+        });
+    }
+}
+
+fn cell_label(text: &str) -> Label {
+    Label::new(text).wrap_mode(TextWrapMode::Extend)
 }
 
 impl eframe::App for Tablr {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.files_to_load.len() != 0 {
-            self.load_parquet_data(self.files_to_load.clone());
-            self.files_to_load.clear();
-        }
+        self.process_pending_files();
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Browse...").clicked() {
-                    if let Some(paths) = FileDialog::new()
-                        .add_filter("Parquet files", &["parquet"])
-                        .set_title("Pick parquet file(s)")
-                        .pick_files()
-                    {
-                        self.files_message = if paths.len() == 1 {
-                            paths[0]
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string()
-                        } else {
-                            format!("{} files", paths.len())
-                        };
-
-                        if !paths.is_empty() {
-                            self.files_to_load = paths;
-                        } else {
-                            self.dataframe = None;
-                            self.column_names.clear();
-                            self.error_message = Some("Please select a file path.".to_string());
-                        }
-                    }
-                }
-
-                if self.files_message.is_empty() {
-                    ui.label("No parquet file selected.");
-                } else {
-                    ui.label(format!("Loaded file: {}", self.files_message));
-                }
-            });
-
+            self.render_file_selector(ui);
             ui.separator();
-
-            if let Some(err_msg) = &self.error_message {
-                ui.colored_label(egui::Color32::RED, err_msg);
-            }
-
-            if let Some(df) = &self.dataframe {
-                if !self.column_names.is_empty() {
-                    ScrollArea::horizontal()
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            TableBuilder::new(ui)
-                                .striped(true)
-                                .resizable(true)
-                                .columns(Column::auto().resizable(true), self.column_names.len())
-                                .header(20.0, |mut header| {
-                                    header.col(|ui| {
-                                        ui.label("Row Index");
-                                    });
-                                    for col_name in &self.column_names {
-                                        header.col(|ui| {
-                                            ui.add(
-                                                Label::new(col_name)
-                                                    .wrap_mode(TextWrapMode::Extend),
-                                            );
-                                        });
-                                    }
-                                })
-                                .body(|body| {
-                                    let num_rows = df.height();
-                                    body.rows(20.0, num_rows, |mut row| {
-                                        let row_index = row.index();
-
-                                        row.col(|ui| {
-                                            ui.label(row_index.to_string());
-                                        });
-
-                                        for col_name in &self.column_names {
-                                            match df.column(col_name) {
-                                                Ok(series) => {
-                                                    let cell_text = match series.get(row_index) {
-                                                        Ok(any_value) => any_value.to_string(),
-                                                        Err(_) => "Error (cell access)".to_string(),
-                                                    };
-                                                    row.col(|ui| {
-                                                        ui.add(
-                                                            Label::new(cell_text)
-                                                                .wrap_mode(TextWrapMode::Extend),
-                                                        );
-                                                    });
-                                                }
-                                                Err(_) => {
-                                                    row.col(|ui| {
-                                                        ui.add(
-                                                            Label::new("Error (column access)")
-                                                                .wrap_mode(TextWrapMode::Extend),
-                                                        );
-                                                    });
-                                                }
-                                            }
-                                        }
-                                    });
-                                });
-                        });
-                } else if self.error_message.is_none() {
-                    ui.label("File loaded, but it contains no columns or data.");
-                }
-            }
+            self.render_error_message(ui);
+            self.render_dataframe(ui);
         });
     }
 }
