@@ -25,13 +25,12 @@ impl Tablr {
         }
     }
 
-    fn load_parquet_data(&mut self, paths: &Vec<PathBuf>) {
+    fn load_parquet_data(&mut self, paths: Vec<PathBuf>) {
         self.dataframe = None;
         self.column_names.clear();
         self.error_message = None;
 
-        let scan_sources =
-            ScanSources::Paths(paths.iter().map(|p| p.to_path_buf()).collect::<Arc<_>>());
+        let scan_sources = ScanSources::Paths(paths.into());
 
         match LazyFrame::scan_parquet_sources(scan_sources, ScanArgsParquet::default()) {
             Ok(lazy_frame) => match lazy_frame.collect() {
@@ -59,7 +58,7 @@ impl Tablr {
 impl eframe::App for Tablr {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.files_to_load.len() != 0 {
-            self.load_parquet_data(&self.files_to_load.clone());
+            self.load_parquet_data(self.files_to_load.clone());
             self.files_to_load.clear();
         }
 
