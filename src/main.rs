@@ -122,10 +122,10 @@ impl eframe::App for Tablr {
                                 })
                                 .body(|body| {
                                     let num_rows = df.height();
-                                    body.rows(20.0, num_rows, |mut table_row| {
-                                        let row_index = table_row.index();
+                                    body.rows(20.0, num_rows, |mut row| {
+                                        let row_index = row.index();
 
-                                        table_row.col(|ui| {
+                                        row.col(|ui| {
                                             ui.label(row_index.to_string());
                                         });
 
@@ -136,7 +136,7 @@ impl eframe::App for Tablr {
                                                         Ok(any_value) => any_value.to_string(),
                                                         Err(_) => "Error (cell access)".to_string(),
                                                     };
-                                                    table_row.col(|ui| {
+                                                    row.col(|ui| {
                                                         ui.add(
                                                             Label::new(cell_text)
                                                                 .wrap_mode(TextWrapMode::Extend),
@@ -144,7 +144,7 @@ impl eframe::App for Tablr {
                                                     });
                                                 }
                                                 Err(_) => {
-                                                    table_row.col(|ui| {
+                                                    row.col(|ui| {
                                                         ui.add(
                                                             Label::new("Error (column access)")
                                                                 .wrap_mode(TextWrapMode::Extend),
