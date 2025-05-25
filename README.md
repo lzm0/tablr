@@ -9,11 +9,12 @@ A desktop GUI application for viewing Parquet files, built with Rust using egui 
 - [x] **Native Performance**: Built with Rust for fast data processing and rendering
 - [x] **Cross-Platform**: Runs on Windows, macOS, and Linux
 - [ ] **Sorting**: TODO
+- [ ] **Searching**: TODO
 - [ ] **Filtering**: TODO
 
 ## Installation
 
-This is still a work in progress, no pre-built binaries are available yet. You can build the application from source.
+This is still a work in progress, so no pre-built binaries are available yet. You can build the application from source.
 
 ```bash
 cargo build --release
