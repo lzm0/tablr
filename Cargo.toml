@@ -1,0 +1,10 @@
+[package]
+name = "tablr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = { version = "0.31.1", features = ["default"] }
+egui_extras = "0.31.1"
+polars = { version = "0.48.1", features = ["lazy", "parquet", "dtype-full"] }
+rfd = "0.15.3"
