@@ -202,62 +202,57 @@ impl Tablr {
     }
 
     fn render_filter_dialog(&mut self, ctx: &egui::Context) {
-        if self.filter_dialog_open {
-            egui::Window::new("Filter")
-                .resizable(false)
-                .collapsible(false)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Column:");
-                        egui::ComboBox::from_id_salt("filter_column")
-                            .selected_text(
-                                self.selected_filter_column
-                                    .map(|idx| self.column_names[idx].as_str())
-                                    .unwrap_or("Select column"),
-                            )
-                            .show_ui(ui, |ui| {
-                                let column_names = self.column_names.clone();
-                                for (idx, col_name) in column_names.iter().enumerate() {
-                                    if ui
-                                        .selectable_value(
-                                            &mut self.selected_filter_column,
-                                            Some(idx),
-                                            col_name,
-                                        )
-                                        .clicked()
-                                    {
-                                        self.apply_filter();
-                                    }
-                                }
-                            });
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Filter text:");
-                        let response = ui.text_edit_singleline(&mut self.filter_text);
-                        if response.changed() {
-                            self.apply_filter();
-                        }
-                    });
-
-                    ui.horizontal(|ui| {
-                        if ui.button("Clear Filter").clicked() {
-                            self.selected_filter_column = None;
-                            self.filter_text.clear();
-                            if let Some(original_df) = &self.original_dataframe {
-                                self.dataframe = Some(original_df.clone());
-                                if self.sort_column.is_some() {
-                                    self.apply_sort();
+        let mut open = self.filter_dialog_open;
+        egui::Window::new("Filter")
+            .resizable(false)
+            .collapsible(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Column:");
+                    egui::ComboBox::from_id_salt("filter_column")
+                        .selected_text(
+                            self.selected_filter_column
+                                .map(|idx| self.column_names[idx].as_str())
+                                .unwrap_or("Select column"),
+                        )
+                        .show_ui(ui, |ui| {
+                            let column_names = self.column_names.clone();
+                            for (idx, col_name) in column_names.iter().enumerate() {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.selected_filter_column,
+                                        Some(idx),
+                                        col_name,
+                                    )
+                                    .clicked()
+                                {
+                                    self.apply_filter();
                                 }
                             }
-                        }
-
-                        if ui.button("Close").clicked() {
-                            self.filter_dialog_open = false;
-                        }
-                    });
+                        });
                 });
-        }
+
+                ui.horizontal(|ui| {
+                    ui.label("Filter text:");
+                    let response = ui.text_edit_singleline(&mut self.filter_text);
+                    if response.changed() {
+                        self.apply_filter();
+                    }
+                });
+
+                if ui.button("Clear Filter").clicked() {
+                    self.selected_filter_column = None;
+                    self.filter_text.clear();
+                    if let Some(original_df) = &self.original_dataframe {
+                        self.dataframe = Some(original_df.clone());
+                        if self.sort_column.is_some() {
+                            self.apply_sort();
+                        }
+                    }
+                }
+            });
+        self.filter_dialog_open = open;
     }
 
     fn render_table_header(&mut self, header_row: &mut TableRow, column_names: &[String]) {
