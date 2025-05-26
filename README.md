@@ -3,7 +3,6 @@
 A desktop GUI application for viewing Parquet files, built with Rust using egui and Polars.
 <img width="1312" alt="image" src="https://github.com/user-attachments/assets/0b63d6aa-81a7-49be-a98c-c19989a862ae" />
 
-
 ## Features
 
 - [x] **Multi-file Support**: Load single or multiple partitioned Parquet files
@@ -26,5 +25,9 @@ cargo build --release
 
 ### Do you plan to support other file formats?
 
-No, Tablr is focused on Parquet files only. The rationale is that other formats like CSV or JSON can be easily read with
+No. Tablr is focused on Parquet files only. The rationale is that other formats like CSV or JSON can be easily read with
 a text editor.
+
+### Do you plan to add a wasm target?
+
+No. Tablr is designed as a desktop application for performance and security reasons.
