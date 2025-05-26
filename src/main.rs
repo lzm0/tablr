@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, CursorIcon};
 use eframe::egui::{ScrollArea, TextWrapMode};
 use egui::widgets::Label;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
@@ -165,6 +165,7 @@ impl Tablr {
                             ""
                         }
                     )))
+                    .on_hover_cursor(CursorIcon::Default)
                     .clicked()
                 {
                     if Some(i) == self.sort_column {
