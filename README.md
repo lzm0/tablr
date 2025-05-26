@@ -10,9 +10,9 @@ A desktop GUI application for viewing Parquet files, built with Rust using egui 
 - [x] **Infinite Scrolling**: Efficiently handle large datasets thanks to Polars `LazyFrame`
 - [x] **Native Performance**: Built with Rust for fast data processing and rendering
 - [x] **Cross-Platform**: Runs on Windows, macOS, and Linux
-- [ ] **Sorting**: TODO
-- [ ] **Searching**: TODO
-- [ ] **Filtering**: TODO
+- [x] **Sorting**: Sorting a single column by clicking on the column header
+- [x] **Filtering**: Supports `equals` and `contains`
+- [ ] **Full-text Search**: TODO
 
 ## Installation
 
