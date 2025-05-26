@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 struct Tablr {
     dataframe: Option<DataFrame>,
+    original_dataframe: Option<DataFrame>,
     column_names: Vec<String>,
     files_to_load: Vec<PathBuf>,
     error_message: Option<String>,
@@ -15,12 +16,17 @@ struct Tablr {
 
     sort_column: Option<usize>,
     sort_descending: bool,
+
+    filter_dialog_open: bool,
+    selected_filter_column: Option<usize>,
+    filter_text: String,
 }
 
 impl Tablr {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             dataframe: None,
+            original_dataframe: None,
             column_names: Vec::new(),
             files_to_load: Vec::new(),
             error_message: None,
@@ -28,11 +34,16 @@ impl Tablr {
 
             sort_column: None,
             sort_descending: false,
+
+            filter_dialog_open: false,
+            selected_filter_column: None,
+            filter_text: String::new(),
         }
     }
 
     fn load_parquet_data(&mut self, paths: Vec<PathBuf>) {
         self.dataframe = None;
+        self.original_dataframe = None;
         self.column_names.clear();
 
         let scan_sources = ScanSources::Paths(paths.into());
@@ -46,11 +57,15 @@ impl Tablr {
                     .iter()
                     .map(|s| s.to_string())
                     .collect();
+                self.original_dataframe = Some(df.clone());
                 self.dataframe = Some(df);
                 self.error_message = None;
+                self.selected_filter_column = None;
+                self.filter_text.clear();
             }
             Err(e) => {
                 self.dataframe = None;
+                self.original_dataframe = None;
                 self.column_names.clear();
                 self.error_message = Some(format!("Error processing Parquet files: {}", e));
             }
@@ -75,6 +90,14 @@ impl Tablr {
             } else {
                 ui.label(format!("Selected: {}", self.files_message));
             }
+
+            ui.separator();
+
+            ui.add_enabled_ui(self.dataframe.is_some(), |ui| {
+                if ui.button("Filter").clicked() {
+                    self.filter_dialog_open = true;
+                }
+            });
         });
     }
 
@@ -148,6 +171,95 @@ impl Tablr {
         }
     }
 
+    fn apply_filter(&mut self) {
+        if let (Some(original_df), Some(col_idx)) =
+            (&self.original_dataframe, self.selected_filter_column)
+        {
+            let col_name = &self.column_names[col_idx];
+
+            if self.filter_text.is_empty() {
+                self.dataframe = Some(original_df.clone());
+            } else {
+                let lazy_df = original_df.clone().lazy();
+                match lazy_df
+                    .filter(col(col_name).eq(lit(self.filter_text.clone())))
+                    .collect()
+                {
+                    Ok(filtered_df) => {
+                        self.dataframe = Some(filtered_df);
+                    }
+                    Err(e) => {
+                        self.error_message = Some(format!("Filter error: {}", e));
+                        self.dataframe = Some(original_df.clone());
+                    }
+                }
+            }
+
+            if self.sort_column.is_some() {
+                self.apply_sort();
+            }
+        }
+    }
+
+    fn render_filter_dialog(&mut self, ctx: &egui::Context) {
+        if self.filter_dialog_open {
+            egui::Window::new("Filter")
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Column:");
+                        egui::ComboBox::from_id_salt("filter_column")
+                            .selected_text(
+                                self.selected_filter_column
+                                    .map(|idx| self.column_names[idx].as_str())
+                                    .unwrap_or("Select column"),
+                            )
+                            .show_ui(ui, |ui| {
+                                let column_names = self.column_names.clone();
+                                for (idx, col_name) in column_names.iter().enumerate() {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.selected_filter_column,
+                                            Some(idx),
+                                            col_name,
+                                        )
+                                        .clicked()
+                                    {
+                                        self.apply_filter();
+                                    }
+                                }
+                            });
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Filter text:");
+                        let response = ui.text_edit_singleline(&mut self.filter_text);
+                        if response.changed() {
+                            self.apply_filter();
+                        }
+                    });
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Clear Filter").clicked() {
+                            self.selected_filter_column = None;
+                            self.filter_text.clear();
+                            if let Some(original_df) = &self.original_dataframe {
+                                self.dataframe = Some(original_df.clone());
+                                if self.sort_column.is_some() {
+                                    self.apply_sort();
+                                }
+                            }
+                        }
+
+                        if ui.button("Close").clicked() {
+                            self.filter_dialog_open = false;
+                        }
+                    });
+                });
+        }
+    }
+
     fn render_table_header(&mut self, header_row: &mut TableRow, column_names: &[String]) {
         header_row.col(|ui| {
             ui.add(cell_label("Row Index"));
@@ -217,7 +329,7 @@ fn cell_label(text: &str) -> Label {
 impl eframe::App for Tablr {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.process_pending_files();
-
+        self.render_filter_dialog(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_file_selector(ui);
             ui.separator();
