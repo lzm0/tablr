@@ -229,7 +229,6 @@ impl Tablr {
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    // ui.label("Column:");
                     egui::ComboBox::from_id_salt("filter_column")
                         .selected_text(
                             self.selected_filter_column
@@ -252,7 +251,6 @@ impl Tablr {
                             }
                         });
 
-                    // ui.label("Type:");
                     egui::ComboBox::from_id_salt("filter_type")
                         .selected_text(self.filter_type.to_string())
                         .show_ui(ui, |ui| {
