@@ -6,6 +6,21 @@ use polars::prelude::*;
 use rfd::FileDialog;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FilterType {
+    Equals,
+    Contains,
+}
+
+impl std::fmt::Display for FilterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FilterType::Equals => write!(f, "Equals"),
+            FilterType::Contains => write!(f, "Contains"),
+        }
+    }
+}
+
 struct Tablr {
     dataframe: Option<DataFrame>,
     original_dataframe: Option<DataFrame>,
@@ -20,6 +35,7 @@ struct Tablr {
     filter_dialog_open: bool,
     selected_filter_column: Option<usize>,
     filter_text: String,
+    filter_type: FilterType,
 }
 
 impl Tablr {
@@ -38,6 +54,7 @@ impl Tablr {
             filter_dialog_open: false,
             selected_filter_column: None,
             filter_text: String::new(),
+            filter_type: FilterType::Equals,
         }
     }
 
@@ -181,10 +198,13 @@ impl Tablr {
                 self.dataframe = Some(original_df.clone());
             } else {
                 let lazy_df = original_df.clone().lazy();
-                match lazy_df
-                    .filter(col(col_name).eq(lit(self.filter_text.clone())))
-                    .collect()
-                {
+                let filter_expr = match self.filter_type {
+                    FilterType::Equals => col(col_name).eq(lit(self.filter_text.clone())),
+                    FilterType::Contains => col(col_name)
+                        .str()
+                        .contains(lit(self.filter_text.clone()), false),
+                };
+                match lazy_df.filter(filter_expr).collect() {
                     Ok(filtered_df) => {
                         self.dataframe = Some(filtered_df);
                     }
@@ -209,7 +229,7 @@ impl Tablr {
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Column:");
+                    // ui.label("Column:");
                     egui::ComboBox::from_id_salt("filter_column")
                         .selected_text(
                             self.selected_filter_column
@@ -231,6 +251,33 @@ impl Tablr {
                                 }
                             }
                         });
+
+                    // ui.label("Type:");
+                    egui::ComboBox::from_id_salt("filter_type")
+                        .selected_text(self.filter_type.to_string())
+                        .show_ui(ui, |ui| {
+                            if ui
+                                .selectable_value(
+                                    &mut self.filter_type,
+                                    FilterType::Equals,
+                                    "Equals",
+                                )
+                                .clicked()
+                            {
+                                self.apply_filter();
+                            }
+                            if ui
+                                .selectable_value(
+                                    &mut self.filter_type,
+                                    FilterType::Contains,
+                                    "Contains",
+                                )
+                                .clicked()
+                            {
+                                self.apply_filter();
+                            }
+                        });
+
                     ui.label("Filter text:");
                     let response = ui.text_edit_singleline(&mut self.filter_text);
                     if response.changed() {
