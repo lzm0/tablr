@@ -231,26 +231,22 @@ impl Tablr {
                                 }
                             }
                         });
-                });
-
-                ui.horizontal(|ui| {
                     ui.label("Filter text:");
                     let response = ui.text_edit_singleline(&mut self.filter_text);
                     if response.changed() {
                         self.apply_filter();
                     }
-                });
-
-                if ui.button("Clear Filter").clicked() {
-                    self.selected_filter_column = None;
-                    self.filter_text.clear();
-                    if let Some(original_df) = &self.original_dataframe {
-                        self.dataframe = Some(original_df.clone());
-                        if self.sort_column.is_some() {
-                            self.apply_sort();
+                    if ui.button("Clear Filter").clicked() {
+                        self.selected_filter_column = None;
+                        self.filter_text.clear();
+                        if let Some(original_df) = &self.original_dataframe {
+                            self.dataframe = Some(original_df.clone());
+                            if self.sort_column.is_some() {
+                                self.apply_sort();
+                            }
                         }
                     }
-                }
+                });
             });
         self.filter_dialog_open = open;
     }
