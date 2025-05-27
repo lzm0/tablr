@@ -39,7 +39,7 @@ struct Tablr {
 }
 
 impl Tablr {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new() -> Self {
         Self {
             dataframe: None,
             original_dataframe: None,
@@ -377,6 +377,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Tablr - Parquet Viewer",
         options,
-        Box::new(|cc| Ok(Box::new(Tablr::new(cc)))),
+        Box::new(|_| Ok(Box::new(Tablr::new()))),
     )
 }
