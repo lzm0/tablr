@@ -4,6 +4,7 @@ use egui::widgets::Label;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 use polars::prelude::*;
 use rfd::FileDialog;
+use std::env;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,7 +28,7 @@ struct Tablr {
     column_names: Vec<String>,
     files_to_load: Vec<PathBuf>,
     error_message: Option<String>,
-    files_message: String,
+    files_loaded: bool,
 
     sort_column: Option<usize>,
     sort_descending: bool,
@@ -39,14 +40,14 @@ struct Tablr {
 }
 
 impl Tablr {
-    fn new() -> Self {
+    fn new(files_to_load: Vec<PathBuf>) -> Self {
         Self {
             dataframe: None,
             original_dataframe: None,
             column_names: Vec::new(),
-            files_to_load: Vec::new(),
+            files_to_load,
             error_message: None,
-            files_message: String::new(),
+            files_loaded: false,
 
             sort_column: None,
             sort_descending: false,
@@ -91,10 +92,9 @@ impl Tablr {
     }
 
     fn process_pending_files(&mut self) {
-        if !self.files_to_load.is_empty() {
-            let files_to_load = self.files_to_load.clone();
-            self.files_to_load.clear();
-            self.load_parquet_data(files_to_load);
+        if !self.files_loaded && !self.files_to_load.is_empty() {
+            self.load_parquet_data(self.files_to_load.clone());
+            self.files_loaded = true;
         }
     }
 
@@ -104,10 +104,10 @@ impl Tablr {
                 self.handle_browse_button_click();
             }
 
-            if self.files_message.is_empty() {
-                ui.label("No parquet files selected.");
+            if self.files_to_load.is_empty() {
+                ui.label("No parquet files selected");
             } else {
-                ui.label(format!("Selected: {}", self.files_message));
+                ui.label(format!("Selected: {} files", self.files_to_load.len()));
             }
 
             ui.separator();
@@ -123,26 +123,14 @@ impl Tablr {
     fn handle_browse_button_click(&mut self) {
         if let Some(paths) = FileDialog::new()
             .add_filter("Parquet files", &["parquet"])
-            .set_title("Pick parquet file(s)")
             .pick_files()
         {
             if paths.is_empty() {
-                self.files_message = "No files selected.".to_string();
-
                 self.error_message =
                     Some("No files selected. Please select at least one Parquet file.".to_string());
             } else {
-                self.files_message = if paths.len() == 1 {
-                    paths[0]
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .into_owned()
-                } else {
-                    format!("{} files", paths.len())
-                };
                 self.files_to_load = paths;
-
+                self.files_loaded = false;
                 self.error_message = None;
             }
         }
@@ -370,6 +358,8 @@ impl eframe::App for Tablr {
 }
 
 fn main() -> Result<(), eframe::Error> {
+    let paths: Vec<PathBuf> = env::args().skip(1).map(PathBuf::from).collect();
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 800.0]),
         ..Default::default()
@@ -377,6 +367,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Tablr - Parquet Viewer",
         options,
-        Box::new(|_| Ok(Box::new(Tablr::new()))),
+        Box::new(|_| Ok(Box::new(Tablr::new(paths)))),
     )
 }
