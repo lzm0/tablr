@@ -69,13 +69,14 @@ impl Tablr {
             .and_then(|lazy_frame| lazy_frame.collect())
         {
             Ok(df) => {
-                self.column_names = df
+                let df_with_row_index = df.with_row_index("Row Index".into(), None).unwrap();
+                self.column_names = df_with_row_index
                     .get_column_names()
                     .iter()
                     .map(|s| s.to_string())
                     .collect();
-                self.original_dataframe = Some(df.clone());
-                self.dataframe = Some(df);
+                self.original_dataframe = Some(df_with_row_index.clone());
+                self.dataframe = Some(df_with_row_index);
                 self.error_message = None;
                 self.selected_filter_column = None;
                 self.filter_text.clear();
@@ -91,7 +92,8 @@ impl Tablr {
 
     fn process_pending_files(&mut self) {
         if !self.files_to_load.is_empty() {
-            let files_to_load = std::mem::take(&mut self.files_to_load);
+            let files_to_load = self.files_to_load.clone();
+            self.files_to_load.clear();
             self.load_parquet_data(files_to_load);
         }
     }
@@ -170,6 +172,7 @@ impl Tablr {
                 });
         }
     }
+
     fn apply_sort(&mut self) {
         if let (Some(df), Some(col_idx)) = (&self.dataframe, self.sort_column) {
             let col_name = &self.column_names[col_idx];
@@ -297,10 +300,6 @@ impl Tablr {
     }
 
     fn render_table_header(&mut self, header_row: &mut TableRow, column_names: &[String]) {
-        header_row.col(|ui| {
-            ui.add(cell_label("Row Index"));
-        });
-
         for (i, col_name) in column_names.iter().enumerate() {
             header_row.col(|ui| {
                 if ui
@@ -330,25 +329,20 @@ impl Tablr {
 
     fn render_table_body(&self, body: TableBody, df: &DataFrame, column_names: &[String]) {
         let num_rows = df.height();
-        body.rows(20.0, num_rows, |mut data_row_ui| {
-            let row_index = data_row_ui.index();
-            data_row_ui.col(|ui| {
-                ui.add(cell_label(&row_index.to_string()));
-            });
-
+        body.rows(20.0, num_rows, |mut row| {
             for col_name in column_names {
                 match df.column(col_name) {
                     Ok(column) => {
-                        let cell_text = match column.get(row_index) {
+                        let cell_text = match column.get(row.index()) {
                             Ok(any_value) => any_value.to_string(),
                             Err(_) => "Error".to_string(),
                         };
-                        data_row_ui.col(|ui| {
+                        row.col(|ui| {
                             ui.add(cell_label(&cell_text));
                         });
                     }
                     Err(_) => {
-                        data_row_ui.col(|ui| {
+                        row.col(|ui| {
                             ui.add(cell_label("Col?"));
                         });
                     }
