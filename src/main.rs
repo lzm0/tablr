@@ -1,4 +1,7 @@
-use eframe::egui::{self, CursorIcon};
+use eframe::egui::{
+    self, CentralPanel, Color32, ComboBox, Context, CursorIcon, RichText, TextStyle, Ui,
+    ViewportBuilder, Window,
+};
 use eframe::egui::{ScrollArea, TextWrapMode};
 use egui::widgets::Label;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
@@ -98,7 +101,7 @@ impl Tablr {
         }
     }
 
-    fn render_file_selector(&mut self, ui: &mut egui::Ui) {
+    fn render_file_selector(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui.button("Browse...").clicked() {
                 self.handle_browse_button_click();
@@ -136,13 +139,13 @@ impl Tablr {
         }
     }
 
-    fn render_error_message(&self, ui: &mut egui::Ui) {
+    fn render_error_message(&self, ui: &mut Ui) {
         if let Some(err_msg) = &self.error_message {
-            ui.colored_label(egui::Color32::RED, err_msg);
+            ui.colored_label(Color32::RED, err_msg);
         }
     }
 
-    fn render_dataframe(&mut self, ui: &mut egui::Ui) {
+    fn render_dataframe(&mut self, ui: &mut Ui) {
         if let Some(df) = &self.dataframe.clone() {
             ScrollArea::horizontal()
                 .auto_shrink([false, false])
@@ -212,15 +215,15 @@ impl Tablr {
         }
     }
 
-    fn render_filter_dialog(&mut self, ctx: &egui::Context) {
+    fn render_filter_dialog(&mut self, ctx: &Context) {
         let mut open = self.filter_dialog_open;
-        egui::Window::new("Filter")
+        Window::new("Filter")
             .resizable(false)
             .collapsible(false)
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    egui::ComboBox::from_id_salt("filter_column")
+                    ComboBox::from_id_salt("filter_column")
                         .selected_text(
                             self.selected_filter_column
                                 .map(|idx| self.column_names[idx].as_str())
@@ -242,7 +245,7 @@ impl Tablr {
                             }
                         });
 
-                    egui::ComboBox::from_id_salt("filter_type")
+                    ComboBox::from_id_salt("filter_type")
                         .selected_text(self.filter_type.to_string())
                         .show_ui(ui, |ui| {
                             if ui
@@ -291,15 +294,21 @@ impl Tablr {
         for (i, col_name) in column_names.iter().enumerate() {
             header_row.col(|ui| {
                 if ui
-                    .add(cell_label(&format!(
-                        "{}{}",
-                        col_name,
-                        if Some(i) == self.sort_column {
-                            if self.sort_descending { "⬇" } else { "⬆" }
-                        } else {
-                            ""
-                        }
-                    )))
+                    .add(
+                        Label::new(
+                            RichText::new(&format!(
+                                "{} {}",
+                                col_name,
+                                if Some(i) == self.sort_column {
+                                    if self.sort_descending { "⬇" } else { "⬆" }
+                                } else {
+                                    ""
+                                }
+                            ))
+                            .strong(),
+                        )
+                        .wrap_mode(TextWrapMode::Extend),
+                    )
                     .on_hover_cursor(CursorIcon::Default)
                     .clicked()
                 {
@@ -326,12 +335,12 @@ impl Tablr {
                             Err(_) => "Error".to_string(),
                         };
                         row.col(|ui| {
-                            ui.add(cell_label(&cell_text));
+                            ui.add(Label::new(&cell_text).wrap_mode(TextWrapMode::Extend));
                         });
                     }
                     Err(_) => {
                         row.col(|ui| {
-                            ui.add(cell_label("Col?"));
+                            ui.add(Label::new("Col?").wrap_mode(TextWrapMode::Extend));
                         });
                     }
                 }
@@ -340,15 +349,17 @@ impl Tablr {
     }
 }
 
-fn cell_label(text: &str) -> Label {
-    Label::new(text).wrap_mode(TextWrapMode::Extend)
-}
-
 impl eframe::App for Tablr {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        let font_size = 18.;
+        ctx.style_mut(|style| {
+            style.text_styles.get_mut(&TextStyle::Body).unwrap().size = font_size;
+            style.text_styles.get_mut(&TextStyle::Button).unwrap().size = font_size;
+        });
+
         self.process_pending_files();
         self.render_filter_dialog(ctx);
-        egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             self.render_file_selector(ui);
             ui.separator();
             self.render_error_message(ui);
@@ -361,7 +372,7 @@ fn main() -> Result<(), eframe::Error> {
     let paths: Vec<PathBuf> = env::args().skip(1).map(PathBuf::from).collect();
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 800.0]),
+        viewport: ViewportBuilder::default().with_inner_size([1200.0, 800.0]),
         ..Default::default()
     };
     eframe::run_native(
