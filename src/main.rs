@@ -227,11 +227,11 @@ impl Tablr {
     fn render_filter_dialog(&mut self, ctx: &Context) {
         let mut open = self.filter_dialog_open;
         Window::new("Filter")
-            .resizable(false)
+            .auto_sized()
             .collapsible(false)
             .open(&mut open)
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
+                ui.horizontal_top(|ui| {
                     ComboBox::from_id_salt("filter_column")
                         .selected_text(
                             self.selected_filter_column
