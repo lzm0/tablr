@@ -250,46 +250,48 @@ impl Tablr {
                             }
                         });
 
-                    ComboBox::from_id_salt("filter_type")
-                        .selected_text(self.filter_type.to_string())
-                        .show_ui(ui, |ui| {
-                            if ui
-                                .selectable_value(
-                                    &mut self.filter_type,
-                                    FilterType::Equals,
-                                    "Equals",
-                                )
-                                .clicked()
-                            {
-                                self.apply_filter();
-                            }
-                            if ui
-                                .selectable_value(
-                                    &mut self.filter_type,
-                                    FilterType::Contains,
-                                    "Contains",
-                                )
-                                .clicked()
-                            {
-                                self.apply_filter();
-                            }
-                        });
+                    ui.add_enabled_ui(self.selected_filter_column.is_some(), |ui| {
+                        ComboBox::from_id_salt("filter_type")
+                            .selected_text(self.filter_type.to_string())
+                            .show_ui(ui, |ui| {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.filter_type,
+                                        FilterType::Equals,
+                                        "Equals",
+                                    )
+                                    .clicked()
+                                {
+                                    self.apply_filter();
+                                }
+                                if ui
+                                    .selectable_value(
+                                        &mut self.filter_type,
+                                        FilterType::Contains,
+                                        "Contains",
+                                    )
+                                    .clicked()
+                                {
+                                    self.apply_filter();
+                                }
+                            });
 
-                    ui.label("Filter text:");
-                    let response = ui.text_edit_singleline(&mut self.filter_text);
-                    if response.changed() {
-                        self.apply_filter();
-                    }
-                    if ui.button("Clear Filter").clicked() {
-                        self.selected_filter_column = None;
-                        self.filter_text.clear();
-                        if let Some(original_df) = &self.original_dataframe {
-                            self.dataframe = Some(original_df.clone());
-                            if self.sort_column.is_some() {
-                                self.apply_sort();
+                        ui.label("Filter text:");
+                        let response = ui.text_edit_singleline(&mut self.filter_text);
+                        if response.changed() {
+                            self.apply_filter();
+                        }
+                        if ui.button("Clear Filter").clicked() {
+                            self.selected_filter_column = None;
+                            self.filter_text.clear();
+                            if let Some(original_df) = &self.original_dataframe {
+                                self.dataframe = Some(original_df.clone());
+                                if self.sort_column.is_some() {
+                                    self.apply_sort();
+                                }
                             }
                         }
-                    }
+                    });
                 });
             });
         self.filter_dialog_open = open;
