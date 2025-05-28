@@ -1,7 +1,9 @@
 # Tablr
 
 A desktop GUI application for viewing Parquet files, built with Rust using egui and Polars.
-<img width="1312" alt="image" src="https://github.com/user-attachments/assets/0b63d6aa-81a7-49be-a98c-c19989a862ae" />
+<img width="1312" alt="image" src="https://github.com/user-attachments/assets/d10ed69f-4181-4f31-9c26-887541058d03" />
+
+
 
 ## Features
 
