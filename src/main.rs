@@ -198,14 +198,18 @@ impl Tablr {
             } else {
                 let lazy_df = original_df.clone().lazy();
                 let filter_expr = match self.filter_type {
-                    FilterType::Equals => col(col_name).eq(lit(self.filter_text.clone())),
+                    FilterType::Equals => col(col_name)
+                        .cast(DataType::String)
+                        .eq(lit(self.filter_text.clone())),
                     FilterType::Contains => col(col_name)
+                        .cast(DataType::String)
                         .str()
                         .contains(lit(self.filter_text.clone()), false),
                 };
                 match lazy_df.filter(filter_expr).collect() {
                     Ok(filtered_df) => {
                         self.dataframe = Some(filtered_df);
+                        self.error_message = None;
                     }
                     Err(e) => {
                         self.error_message = Some(format!("Filter error: {}", e));
@@ -276,7 +280,6 @@ impl Tablr {
                                 }
                             });
 
-                        ui.label("Filter text:");
                         let response = ui.text_edit_singleline(&mut self.filter_text);
                         if response.changed() {
                             self.apply_filter();
@@ -284,6 +287,7 @@ impl Tablr {
                         if ui.button("Clear Filter").clicked() {
                             self.selected_filter_column = None;
                             self.filter_text.clear();
+                            self.error_message = None;
                             if let Some(original_df) = &self.original_dataframe {
                                 self.dataframe = Some(original_df.clone());
                                 if self.sort_column.is_some() {
