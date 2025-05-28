@@ -109,6 +109,8 @@ impl Tablr {
 
             if self.files_to_load.is_empty() {
                 ui.label("No parquet files selected");
+            } else if self.files_to_load.len() == 1 {
+                ui.label(format!("Selected: {}", self.files_to_load[0].display()));
             } else {
                 ui.label(format!("Selected: {} files", self.files_to_load.len()));
             }
