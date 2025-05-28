@@ -258,7 +258,7 @@ impl Tablr {
                                     .selectable_value(
                                         &mut self.filter_type,
                                         FilterType::Equals,
-                                        "Equals",
+                                        FilterType::Equals.to_string(),
                                     )
                                     .clicked()
                                 {
@@ -268,7 +268,7 @@ impl Tablr {
                                     .selectable_value(
                                         &mut self.filter_type,
                                         FilterType::Contains,
-                                        "Contains",
+                                        FilterType::Contains.to_string(),
                                     )
                                     .clicked()
                                 {
